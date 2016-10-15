@@ -153,14 +153,6 @@ CREATE OR REPLACE FUNCTION generate_create_statement(type_name text, tablename t
                 temp_const := temp_const||const_record.text;
                 indexes_not_in := indexes_not_in||const_record.conindid;
             END LOOP;
-            FOR index_record IN
-                select indexrelid,pg_get_indexdef(indexrelid) as text
-                from pg_index
-                where indrelid ='user'::regclass
-                and NOT(indexrelid = any(indexes_not_in))
-            LOOP
-                temp_index := temp_index||index_record.text||';'||chr(10);
-            END LOOP;
             return_value:=temp_value||temp_const||')';
             select relhasoids into oidcheck
             from pg_class,pg_namespace
@@ -173,8 +165,6 @@ CREATE OR REPLACE FUNCTION generate_create_statement(type_name text, tablename t
             else
                 return_value:=return_value||' WITHOUT OIDS;';
             end if;
-                return_value:=return_value||chr(10)||'ALTER TABLE redacao OWNER TO postgres;'||chr(10);
-                return_value:=return_value||temp_index;
         ELSIF type_name = 'sequence' THEN
             /*
              * Generate Sequence Statement
@@ -186,8 +176,7 @@ CREATE OR REPLACE FUNCTION generate_create_statement(type_name text, tablename t
                     'MINVALUE '||a.minimum_value||chr(10)||
                     'MAXVALUE '||a.maximum_value||chr(10)||
                     'START '||a.start_value||chr(10)||
-                    'CACHE 1'||CASE WHEN cycle_option = 'YES' THEN ' CYCLE' ELSE '' END ||';'||chr(10)||
-                    'ALTER TABLE '||a.sequence_name||' OWNER TO '||a.sequence_catalog||';' as text
+                    'CACHE 1'||CASE WHEN cycle_option = 'YES' THEN ' CYCLE' ELSE '' END ||';'||chr(10) as text
                 FROM information_schema.sequences a
                 WHERE a.sequence_schema = schema_name
                 AND a.sequence_name ~ ('^('||tablename||')$')
